@@ -52,7 +52,6 @@ temp/
 
 # Outputs/results that can be regenerated
 outputs/
-results/
 
 # Credentials/config files
 .env
