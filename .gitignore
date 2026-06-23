@@ -1,0 +1,60 @@
+# System files
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.ipynb_checkpoints/
+.venv/
+venv/
+env/
+
+# R
+.Rhistory
+.RData
+.Rproj.user/
+
+# Nextflow
+.nextflow/
+.nextflow.log*
+work/
+
+# Logs
+logs/
+*.log
+*.err
+*.out
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Large raw data
+*.fastq
+*.fastq.gz
+*.fq
+*.fq.gz
+*.bam
+*.sam
+*.cram
+*.bai
+*.fasta
+*.fa
+*.fna
+
+# Databases
+*.sqlite
+*.db
+
+# Outputs/results that can be regenerated
+outputs/
+results/
+
+# Credentials/config files
+.env
+config.local.yaml
+secrets/
