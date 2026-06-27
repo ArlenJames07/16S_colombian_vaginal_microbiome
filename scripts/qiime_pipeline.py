@@ -63,18 +63,24 @@ def make_denoising_visualization(folder_results):
 
 #make_denoising_visualization(folder_results)
 
+denoised_folder='../results/denoised-paired_results'
 
-def featuretable_summaries(folder_results):
-       os.makedirs(f'{folder_results}/feature-table_summarise)
+def featuretable_summaries(denoised_folder, folder_results, metadata_file):
+       output_folder=f'{folder_results}/feature-table_summarise'
+       os.makedirs(output_folder, exist_ok=True)
+       cmd_1=['qiime', 'feature-table', 'summarize',
+            '--i-table', f'{denoised_folder}/table.qza',
+            '--m-metadata-file', f'{metadata_file}',
+            '--o-summary', f'{output_folder}/table.qzv',
+            '--o-feature-frequencies', f'{output_folder}/feature-frequencies.qza',
+            '--o-sample-frequencies', f'{output_folder}/sample-frequencies.qza'
+            ]
+       cmd_2=['qiime', 'feature-table', 'tabulate-seqs',
+              '--i-data', f'{denoised_folder}/rep-seqs.qza',
+              '--o-visualization', f'{output_folder}/rep-seqs.qzv']
+       subprocess.run(cmd_1, check=True)
+       subprocess.run(cmd_2,check=True)
+       
+featuretable_summaries(denoised_folder, folder_results, metadata_file)       
 
-
-qiime feature-table summarize \
-  --i-table table.qza \
-  --m-metadata-file sample-metadata.tsv \
-  --o-summary table.qzv \
-  --o-feature-frequencies feature-frequencies.qza \
-  --o-sample-frequencies sample-frequencies.qza
-qiime feature-table tabulate-seqs \
-  --i-data rep-seqs.qza \
-  --o-visualization rep-seqs.qzv       
 
