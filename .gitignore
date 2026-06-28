@@ -46,6 +46,14 @@ temp/
 *.fa
 *.fna
 
+# QIIME 2 artifacts and visualizations
+*.qza
+*.qzv
+
+# Pipeline results
+results/*
+!results/.gitkeep
+
 # Databases
 *.sqlite
 *.db
