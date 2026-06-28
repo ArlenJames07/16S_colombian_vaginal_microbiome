@@ -382,22 +382,23 @@ Planned or downstream components:
 
 If you use this pipeline, code, or processed summary outputs, please cite:
 
-Mosquera-Ruiz A. (2026). *A clinically heterogeneous Gardnerella-dominant vaginal microbiome state in Colombian women reveals a Fannyhessea-associated transition to bacterial vaginosis*. Manuscript in preparation / under review.
+Zuniga-Bahamon A, Mosquera-Ruiz Arlen, Ortega G, Gomez MC, Valencia D, Tobar-Tosse F. (2026). A clinically heterogeneous Gardnerella-dominant vaginal microbiome state in Colombian women reveals a Fannyhessea-associated transition to bacterial vaginosis. Revised manuscript draft / under review.
 
----
+Contact
 
-## License
+For manuscript correspondence:
 
-This project is licensed under the MIT License. See the `LICENSE` file for details.
+Andres Zuniga-Bahamon
+Universidad Javeriana Cali, Colombia
+Universidad Libre, Seccional Cali, Colombia
 
----
+Email: azuniga@javerianacali.edu.co
 
-## Contact
+For pipeline and repository information:
 
-**Arlen James Mosquera-Ruiz**
-Doctorate in Engineering and Applied Sciences
+Arlen James Mosquera-Ruiz
 Pontificia Universidad Javeriana Cali
 Cali, Colombia
 
-Email: [arlen22@javerianacali.edu.co](mailto:arlen22@javerianacali.edu.co)
-ORCID: [0009-0008-0796-9099](https://orcid.org/0009-0008-0796-9099)
+Email: arlen22@javerianacali.edu.co
+ORCID: 0009-0008-0796-9099
