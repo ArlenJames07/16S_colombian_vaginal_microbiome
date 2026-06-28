@@ -81,6 +81,21 @@ def featuretable_summaries(denoised_folder, folder_results, metadata_file):
        subprocess.run(cmd_1, check=True)
        subprocess.run(cmd_2,check=True)
        
-featuretable_summaries(denoised_folder, folder_results, metadata_file)       
+#featuretable_summaries(denoised_folder, folder_results, metadata_file)       
 
 
+#Phylogenetic analysis
+
+
+def phylogenetic_analysis(denoised_folder, folder_results):
+       output_folder=f'{folder_results}/phylogenetic_analysis'
+       os.makedirs(output_folder, exist_ok=True)
+       cmd=['qiime', 'phylogeny', 'align-to-tree-mafft-fasttree',
+            '--i-sequences', f'{denoised_folder}/rep-seqs.qza',
+            '--o-alignment', f'{output_folder}/aligned-rep-seqs.qza',
+            '--o-masked-alignment', f'{output_folder}/masked-aligned-rep-seqs.qza',
+            '--o-tree', f'{output_folder}/unrooted-tree.qza',
+            '--o-rooted-tree', f'{output_folder}/rooted-tree.qza']
+       subprocess.run(cmd, check=True)
+       
+phylogenetic_analysis(denoised_folder, folder_results)      
