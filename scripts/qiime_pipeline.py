@@ -5,7 +5,7 @@ import subprocess
 
 #Define the paths
 
-metadata_file='../data/input_files/manifest.tsv'
+metadata_file='../data/input_files/manifest_curated_nugent.tsv'
 folder_results='../results'
 os.makedirs(folder_results, exist_ok=True)
 
@@ -15,7 +15,7 @@ def create_metadata_tabulate(metadata_file, folder_results):
            '--o-visualization', f'{folder_results}/sample-metadata-viz.qzv']
     subprocess.run(cmd, check=True)
 
-#create_metadata_tabulate(metadata_file, folder_results)
+create_metadata_tabulate(metadata_file, folder_results)
 
 
 def import_data(metadata_file, folder_results):
@@ -26,7 +26,7 @@ def import_data(metadata_file, folder_results):
            '--input-format', 'PairedEndFastqManifestPhred33V2']
     subprocess.run(cmd, check=True)
 
-#import_data(metadata_file, folder_results)
+import_data(metadata_file, folder_results)
 
 
 def demux_summarize(folder_results):
@@ -52,7 +52,7 @@ def denoise_paired(folder_results):
             '--o-denoising-stats', f'{folder_results}/denoised-paired_results/denoising-stats.qza']
        subprocess.run(cmd, check=True)
        
-#denoise_paired(folder_results)       
+denoise_paired(folder_results)       
 
 
 def make_denoising_visualization(folder_results):
@@ -61,7 +61,7 @@ def make_denoising_visualization(folder_results):
             '--o-visualization',f'{folder_results}/denoised-paired_results/denoising-stats.qzv']
        subprocess.run(cmd, check=True)
 
-#make_denoising_visualization(folder_results)
+make_denoising_visualization(folder_results)
 
 denoised_folder='../results/denoised-paired_results'
 
@@ -81,7 +81,7 @@ def featuretable_summaries(denoised_folder, folder_results, metadata_file):
        subprocess.run(cmd_1, check=True)
        subprocess.run(cmd_2,check=True)
        
-#featuretable_summaries(denoised_folder, folder_results, metadata_file)       
+featuretable_summaries(denoised_folder, folder_results, metadata_file)       
 
 
 #Phylogenetic analysis
