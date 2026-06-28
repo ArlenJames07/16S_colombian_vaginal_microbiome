@@ -1,0 +1,14 @@
+column	type	vocabulary_or_rule
+sample_base_id	categorical	Sample identifier with technical suffix removed: dup -> base sample, B -> base sample.
+replicate_type	categorical	Ordered vocabulary: primary, technical_b, technical_duplicate.
+binary status columns	categorical	Ordered vocabulary: no, yes, not_reported. Original code 1=yes, 2=no, blank=not_reported.
+vaginal_hygiene_product	categorical	Ordered vocabulary: none, douches, protectors, not_reported. Derived from Usa Duchas, Usa Protectores, Ninguno D/P.
+microscopy grade columns	categorical	Ordered vocabulary: grade_0_not_observed, grade_1, grade_2, grade_3, grade_4. Blank microscopy fields are treated as not observed.
+bmi	numeric	Calculated as weight_kg / height_m^2 when both values are present.
+nugent_lactobacillus_points	numeric	Source Bcl Gp Lactobacilos: blank=4, 1=3, 2=2, 3=1, 4=0.
+nugent_coccobacilli_points	numeric	Source Bcl CocoBcl G(): blank=0, 1=1, 2=2, 3=3, 4=4.
+nugent_mobiluncus_points	numeric	Source Mobilunc Compatible: blank=0, 1=1, 2=1, 3=2, 4=2.
+nugent_score_estimated	numeric	Sum of Lactobacillus, coccobacilli, and Mobiluncus point columns.
+nugent_category_estimated	categorical	Ordered vocabulary: normal for 0-3, intermediate for 4-6, bv for 7-10.
+nugent_score_method	categorical	estimated_from_morphotype_grades_blank_as_absent.
+microscopy_result_code	categorical	Original NO; Posit; Negativo code retained as code value because source labels are ambiguous.
