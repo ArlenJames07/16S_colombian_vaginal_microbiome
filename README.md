@@ -1,4 +1,4 @@
-# 16S_colombian_vaginal_microbiome
+# 16S colombian vaginal microbiome
 
 **QIIME 2 workflows for 16S rRNA amplicon analysis of the Colombian vaginal microbiome, with emphasis on Gardnerella-dominant community states, Fannyhessea-associated transitions, and bacterial vaginosis-related microbial profiles.**
 
