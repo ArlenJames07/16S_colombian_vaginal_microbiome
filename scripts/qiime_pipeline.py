@@ -425,7 +425,7 @@ def beta_group_significance(
 
     print("\nBeta-group-significance analyses completed.")
 
-
+'''
 beta_group_significance(
     folder_results=folder_results,
     metadata_file=metadata_file,
@@ -433,4 +433,5 @@ beta_group_significance(
     pairwise=True,
     overwrite=True
 )
+'''
 
