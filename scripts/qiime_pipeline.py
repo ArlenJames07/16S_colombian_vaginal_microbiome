@@ -18,7 +18,7 @@ def create_metadata_tabulate(metadata_file, folder_results):
            '--o-visualization', f'{folder_results}/sample-metadata-viz.qzv']
     subprocess.run(cmd, check=True)
 
-#create_metadata_tabulate(metadata_file, folder_results)
+create_metadata_tabulate(metadata_file, folder_results)
 
 
 def import_data(metadata_file, folder_results):
@@ -29,7 +29,7 @@ def import_data(metadata_file, folder_results):
            '--input-format', 'PairedEndFastqManifestPhred33V2']
     subprocess.run(cmd, check=True)
 
-#import_data(metadata_file, folder_results)
+import_data(metadata_file, folder_results)
 
 
 def demux_summarize(folder_results):
@@ -38,7 +38,7 @@ def demux_summarize(folder_results):
            '--o-visualization', f'{folder_results}/demux-paired-end.qzv']
     subprocess.run(cmd, check=True)
 
-#demux_summarize(folder_results)
+demux_summarize(folder_results)
 
 def denoise_paired(folder_results):
        os.makedirs(f'{folder_results}/denoised-paired_results', exist_ok=True)
@@ -55,7 +55,7 @@ def denoise_paired(folder_results):
             '--o-denoising-stats', f'{folder_results}/denoised-paired_results/denoising-stats.qza']
        subprocess.run(cmd, check=True)
        
-#denoise_paired(folder_results)       
+denoise_paired(folder_results)       
 
 
 def make_denoising_visualization(folder_results):
@@ -64,7 +64,7 @@ def make_denoising_visualization(folder_results):
             '--o-visualization',f'{folder_results}/denoised-paired_results/denoising-stats.qzv']
        subprocess.run(cmd, check=True)
 
-#make_denoising_visualization(folder_results)
+make_denoising_visualization(folder_results)
 
 denoised_folder='../results/denoised-paired_results'
 
@@ -84,7 +84,7 @@ def featuretable_summaries(denoised_folder, folder_results, metadata_file):
        subprocess.run(cmd_1, check=True)
        subprocess.run(cmd_2,check=True)
        
-#featuretable_summaries(denoised_folder, folder_results, metadata_file)       
+featuretable_summaries(denoised_folder, folder_results, metadata_file)       
 
 
 #Phylogenetic analysis
@@ -101,7 +101,7 @@ def phylogenetic_analysis(denoised_folder, folder_results):
             '--o-rooted-tree', f'{output_folder}/rooted-tree.qza']
        subprocess.run(cmd, check=True)
        
-#phylogenetic_analysis(denoised_folder, folder_results)      
+phylogenetic_analysis(denoised_folder, folder_results)      
 
 
 #Alpha and beta diversity analysis 
@@ -154,7 +154,7 @@ def diversity_metrics(
 
     print("\nAll diversity analyses completed.")
 
-#diversity_metrics(denoised_folder, folder_results, phylogenetic_folder, metadata_file, overwrite=True)    
+diversity_metrics(denoised_folder, folder_results, phylogenetic_folder, metadata_file, overwrite=True)    
 
 def alpha_group_significance(
     folder_results,
@@ -227,14 +227,14 @@ def alpha_group_significance(
     print("\nAlpha-group-significance analyses completed.")
     
 
-'''   
+   
 alpha_group_significance(
     folder_results,
     metadata_file,
     sampling_depths=[500, 3200, 6000, 10000],
     overwrite=True
 )
-'''
+
 
 def safe_name(value):
     value = str(value)
@@ -425,7 +425,7 @@ def beta_group_significance(
 
     print("\nBeta-group-significance analyses completed.")
 
-'''
+
 beta_group_significance(
     folder_results=folder_results,
     metadata_file=metadata_file,
@@ -433,7 +433,7 @@ beta_group_significance(
     pairwise=True,
     overwrite=True
 )
-'''
+
 
 
 
@@ -493,7 +493,6 @@ def alpha_rarefaction(
 
     print(f"\nAlpha rarefaction completed: {output_qzv}")
 
-
 alpha_rarefaction(
     denoised_folder=denoised_folder,
     folder_results=folder_results,
@@ -507,3 +506,99 @@ alpha_rarefaction(
 # Taxonomic analysis
 
 
+from pathlib import Path
+import subprocess
+
+
+def classify_taxonomy_two_classifiers(denoised_folder, folder_results, overwrite=True):
+    """
+    Classify rep-seqs.qza using two taxonomy classifiers:
+
+    1. 2024.09 backbone full-length classifier
+    2. SILVA 138 99% classifier
+
+    Outputs:
+    results/taxonomy/backbone_2024_09/
+        taxonomy.qza
+        taxonomy.qzv
+
+    results/taxonomy/silva_138_99/
+        taxonomy.qza
+        taxonomy.qzv
+    """
+
+    denoised_folder = Path(denoised_folder)
+    folder_results = Path(folder_results)
+
+    rep_seqs_qza = denoised_folder / "rep-seqs.qza"
+
+    classifiers = {
+        "backbone_2024_09": Path(
+            "/home/rare/arlen/16S_colombian_vaginal_microbiome/data/classifiers/"
+            "2024.09.backbone.full-length.nb.sklearn-1.4.2.qza"
+        ),
+        "silva_138_99": Path(
+            "/home/rare/arlen/16S_colombian_vaginal_microbiome/data/classifiers/"
+            "silva-138-99-nb-classifier.qza"
+        ),
+    }
+
+    if not rep_seqs_qza.exists():
+        raise FileNotFoundError(f"Missing representative sequences file: {rep_seqs_qza}")
+
+    taxonomy_base = folder_results / "taxonomy"
+    taxonomy_base.mkdir(parents=True, exist_ok=True)
+
+    for classifier_name, classifier_path in classifiers.items():
+
+        if not classifier_path.exists():
+            raise FileNotFoundError(f"Missing classifier file: {classifier_path}")
+
+        output_dir = taxonomy_base / classifier_name
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        taxonomy_qza = output_dir / "taxonomy.qza"
+        taxonomy_qzv = output_dir / "taxonomy.qzv"
+
+        if overwrite:
+            if taxonomy_qza.exists():
+                taxonomy_qza.unlink()
+            if taxonomy_qzv.exists():
+                taxonomy_qzv.unlink()
+        else:
+            if taxonomy_qza.exists() and taxonomy_qzv.exists():
+                print(f"Skipping {classifier_name}: output already exists.")
+                continue
+
+        classify_cmd = [
+            "qiime", "feature-classifier", "classify-sklearn",
+            "--i-classifier", str(classifier_path),
+            "--i-reads", str(rep_seqs_qza),
+            "--o-classification", str(taxonomy_qza),
+        ]
+
+        print("\nRunning taxonomy classification")
+        print(f"Classifier: {classifier_name}")
+        print(" ".join(classify_cmd))
+
+        subprocess.run(classify_cmd, check=True)
+
+        tabulate_cmd = [
+            "qiime", "metadata", "tabulate",
+            "--m-input-file", str(taxonomy_qza),
+            "--o-visualization", str(taxonomy_qzv),
+        ]
+
+        print("\nCreating taxonomy visualization")
+        print(f"Classifier: {classifier_name}")
+        print(" ".join(tabulate_cmd))
+
+        subprocess.run(tabulate_cmd, check=True)
+
+    print("\nTaxonomic classification completed for both classifiers.")
+
+classify_taxonomy_two_classifiers(
+    denoised_folder=denoised_folder,
+    folder_results=folder_results,
+    overwrite=True
+)    
