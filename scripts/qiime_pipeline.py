@@ -435,3 +435,75 @@ beta_group_significance(
 )
 '''
 
+
+
+
+# Alpha rarefaction plotting 
+
+
+
+def alpha_rarefaction(
+    denoised_folder,
+    folder_results,
+    phylogenetic_folder,
+    metadata_file,
+    max_depth=10000,
+    overwrite=True
+):
+    """
+    Run QIIME 2 alpha-rarefaction.
+
+    This generates an interactive .qzv visualization to evaluate whether
+    sequencing depth is sufficient for alpha-diversity estimation.
+    """
+
+    denoised_folder = Path(denoised_folder)
+    folder_results = Path(folder_results)
+    phylogenetic_folder = Path(phylogenetic_folder)
+    metadata_file = Path(metadata_file)
+
+    table_qza = denoised_folder / "table.qza"
+    rooted_tree_qza = phylogenetic_folder / "rooted-tree.qza"
+
+    output_dir = folder_results / "alpha_rarefaction"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    output_qzv = output_dir / f"alpha_rarefaction_max_depth_{max_depth}.qzv"
+
+    if output_qzv.exists():
+        if overwrite:
+            output_qzv.unlink()
+        else:
+            print(f"Skipping alpha rarefaction because output already exists: {output_qzv}")
+            return
+
+    cmd = [
+        "qiime", "diversity", "alpha-rarefaction",
+        "--i-table", str(table_qza),
+        "--i-phylogeny", str(rooted_tree_qza),
+        "--p-max-depth", str(max_depth),
+        "--m-metadata-file", str(metadata_file),
+        "--o-visualization", str(output_qzv),
+    ]
+
+    print("\nRunning alpha rarefaction")
+    print(" ".join(cmd))
+
+    subprocess.run(cmd, check=True)
+
+    print(f"\nAlpha rarefaction completed: {output_qzv}")
+
+
+alpha_rarefaction(
+    denoised_folder=denoised_folder,
+    folder_results=folder_results,
+    phylogenetic_folder=phylogenetic_folder,
+    metadata_file=metadata_file,
+    max_depth=10000,
+    overwrite=True
+)
+
+
+# Taxonomic analysis
+
+
