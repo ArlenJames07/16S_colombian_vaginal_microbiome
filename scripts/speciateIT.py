@@ -22,7 +22,7 @@ denoised_folder = folder_results / "denoised-paired_results"
 rep_seqs_qza = denoised_folder / "rep-seqs.qza"
 table_qza = denoised_folder / "table.qza"
 
-speciateit_dir = Path("/home/rare/arlen/speciateIT")
+speciateit_dir = Path("/home/rare/programs/speciateIT")
 speciateit_binary = speciateit_dir / "bin/linux/classify"
 
 output_folder = folder_results / "speciateit_refinement"
