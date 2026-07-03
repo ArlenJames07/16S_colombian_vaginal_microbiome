@@ -7,7 +7,6 @@ import os, subprocess
 denoised_folder='../results/denoised-paired_results'
 results_folder='../results'
 
-
 def extract(denoised_folder, results_folder):
     output_folder=f'{results_folder}/qza_extracted'
     os.makedirs(output_folder, exist_ok=True)
@@ -21,6 +20,21 @@ def extract(denoised_folder, results_folder):
             
 #extract(denoised_folder, results_folder)
 
+qiime_taxonomy='../results/taxonomic_assignment'
+
+def extract_taxonomy(qiime_taxonomy,results_folder):
+    output_folder=f'{results_folder}/taxonomy_qiime'
+    os.makedirs(output_folder, exist_ok=True)
+    for root, dirs, files in os.walk(qiime_taxonomy):
+        for x in files:
+            if x.endswith('taxonomy.qza'):
+                file=os.path.join(root,x)
+                basename=file.split('/')[3]
+                cmd=['qiime', 'tools', 'extract',
+                     '--input-path', f'{file}',
+                     '--output-path',f'{output_folder}/{basename}']
+                subprocess.run(cmd, check=True)
+#extract_taxonomy(qiime_taxonomy,results_folder)
 
 ## Run speciate IT to assign taxonomic classification 
 
@@ -37,4 +51,4 @@ def classification(fasta_sequences, results_folder, program):
          '-o', f'{output_folder}']
     subprocess.run(cmd, check=True)
 
-classification(fasta_sequences, results_folder, program)   
+#classification(fasta_sequences, results_folder, program)   
