@@ -27,7 +27,7 @@ def extract_taxonomy(qiime_taxonomy,results_folder):
     os.makedirs(output_folder, exist_ok=True)
     for root, dirs, files in os.walk(qiime_taxonomy):
         for x in files:
-            if x.endswith('taxonomy.qza'):
+            if x.endswith('taxonomy.qzv'):
                 file=os.path.join(root,x)
                 basename=file.split('/')[3]
                 cmd=['qiime', 'tools', 'extract',
