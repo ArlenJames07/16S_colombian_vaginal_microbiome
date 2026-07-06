@@ -1,179 +1,281 @@
-#Import the libraries
-
 from pathlib import Path
+from datetime import datetime
+from uuid import uuid4
 import subprocess
 import shutil
-import os
-import pandas as pd
 import re
-#Define the paths
+import pandas as pd
 
-metadata_file='../data/input_files/manifest_curated_nugent.tsv'
-folder_results='../results'
-os.makedirs(folder_results, exist_ok=True)
 
-def create_metadata_tabulate(metadata_file, folder_results):
-    cmd = ['qiime', 'metadata', 'tabulate',
-           '--m-input-file', f'{metadata_file}',
-           '--o-visualization', f'{folder_results}/sample-metadata-viz.qzv']
+# ============================================================
+# CONFIG
+# ============================================================
+
+PROJECT_ROOT = Path.cwd().resolve()
+
+MANIFEST_FILE = PROJECT_ROOT / "data" / "input_files" / "manifest_curated_nugent.tsv"
+
+# If you have a separate metadata file, change this.
+# If not, the manifest will also be used as metadata.
+METADATA_FILE = MANIFEST_FILE
+
+RESULTS_ROOT = PROJECT_ROOT / "results" / "qiime2_unique_runs"
+
+CLASSIFIERS = {
+    "backbone_2024_09_full_length": PROJECT_ROOT / "data" / "classifiers" / "2024.09.backbone.full-length.nb.sklearn-1.4.2.qza",
+    "silva_138_99": PROJECT_ROOT / "data" / "classifiers" / "silva-138-99-nb-classifier.qza",
+}
+
+THREADS = 32
+
+DADA2_TRIM_LEFT_F = 0
+DADA2_TRIM_LEFT_R = 0
+DADA2_TRUNC_LEN_F = 0
+DADA2_TRUNC_LEN_R = 0
+
+SAMPLING_DEPTHS = [500, 3200, 6000, 10000]
+ALPHA_RAREFACTION_MAX_DEPTH = 10000
+
+RUN_ID = datetime.now().strftime("%Y%m%d_%H%M%S") + "_" + uuid4().hex[:8]
+RUN_DIR = RESULTS_ROOT / f"run_{RUN_ID}"
+
+
+# ============================================================
+# BASIC UTILITIES
+# ============================================================
+
+def run_cmd(cmd):
+    cmd = [str(x) for x in cmd]
+    print("\n$ " + " ".join(cmd))
     subprocess.run(cmd, check=True)
 
-#create_metadata_tabulate(metadata_file, folder_results)
+
+def require_file(path, label):
+    path = Path(path)
+    if not path.exists():
+        raise FileNotFoundError(f"{label} not found: {path}")
+    return path
 
 
-def import_data(metadata_file, folder_results):
-    cmd = ['qiime', 'tools', 'import',
-           '--type', 'SampleData[PairedEndSequencesWithQuality]',
-           '--input-path', f'{metadata_file}',
-           '--output-path', f'{folder_results}/demux-paired-end.qza',
-           '--input-format', 'PairedEndFastqManifestPhred33V2']
-    subprocess.run(cmd, check=True)
-
-#import_data(metadata_file, folder_results)
+def make_dir(path):
+    path = Path(path)
+    path.mkdir(parents=True, exist_ok=True)
+    return path
 
 
-def demux_summarize(folder_results):
-    cmd = ['qiime', 'demux', 'summarize',
-           '--i-data', f'{folder_results}/demux-paired-end.qza',
-           '--o-visualization', f'{folder_results}/demux-paired-end.qzv']
-    subprocess.run(cmd, check=True)
-
-#demux_summarize(folder_results)
-
-def denoise_paired(folder_results):
-    output_folder=f'{folder_results}/denoised-paired_results'
-    os.makedirs(output_folder, exist_ok=True)
-    cmd=['qiime', 'dada2', 'denoise-paired',
-            '--i-demultiplexed-seqs', f'{folder_results}/demux-paired-end.qza',
-            '--p-trunc-len-f', '240',
-            '--p-trunc-len-r', '200',
-            '--p-trim-left-f' ,'0', 
-            '--p-trim-left-r', '0',
-            '--p-n-threads', '32',
-            '--o-table', f'{output_folder}/table.qza',
-            '--o-representative-sequences',f'{output_folder}/rep-seqs.qza',
-            '--o-denoising-stats', f'{output_folder}/denoising-stats.qza']
-    subprocess.run(cmd, check=True)
-       
-       
-#denoise_paired(folder_results)       
+def safe_name(value):
+    value = str(value)
+    value = re.sub(r"[^A-Za-z0-9_.-]+", "_", value)
+    return value.strip("_")
 
 
-def make_denoising_visualization(folder_results):
-    output_folder=f'{folder_results}/denoised-paired_results'
-    os.makedirs(output_folder, exist_ok=True)
-    cmd=['qiime', 'metadata', 'tabulate',
-         '--m-input-file', f'{output_folder}/denoising-stats.qza',
-         '--o-visualization',f'{output_folder}/denoising-stats.qzv']
-    subprocess.run(cmd, check=True)
+def initialize_unique_run():
+    if RUN_DIR.exists():
+        raise FileExistsError(f"RUN_DIR already exists. This should not happen: {RUN_DIR}")
 
-#make_denoising_visualization(folder_results)
+    make_dir(RUN_DIR)
 
-denoised_folder='../results/denoised-paired_results'
+    print("\nUnique QIIME2 run created")
+    print(f"RUN_ID: {RUN_ID}")
+    print(f"RUN_DIR: {RUN_DIR}")
 
-def featuretable_summaries(denoised_folder, folder_results, metadata_file):
-       output_folder=f'{folder_results}/feature-table_summarise'
-       os.makedirs(output_folder, exist_ok=True)
-       cmd_1=['qiime', 'feature-table', 'summarize',
-            '--i-table', f'{denoised_folder}/table.qza',
-            '--m-sample-metadata-file', f'{metadata_file}',
-            '--o-visualization', f'{output_folder}/table.qzv']
-       cmd_2=['qiime', 'feature-table', 'tabulate-seqs',
-              '--i-data', f'{denoised_folder}/rep-seqs.qza',
-              '--o-visualization', f'{output_folder}/rep-seqs.qzv']
-       subprocess.run(cmd_1, check=True)
-       subprocess.run(cmd_2,check=True)
-       
-#featuretable_summaries(denoised_folder, folder_results, metadata_file)       
+    return RUN_DIR
 
 
-#Phylogenetic analysis
+# ============================================================
+# PATHS FOR THIS UNIQUE RUN
+# ============================================================
+
+def get_run_paths(run_dir):
+    run_dir = Path(run_dir)
+
+    paths = {
+        "run_dir": run_dir,
+
+        "metadata_viz_dir": run_dir / "00_metadata",
+        "import_dir": run_dir / "01_import",
+        "denoise_dir": run_dir / "02_dada2_denoise",
+        "feature_summary_dir": run_dir / "03_feature_table_summary",
+        "phylogeny_dir": run_dir / "04_phylogeny",
+        "diversity_dir": run_dir / "05_diversity",
+        "taxonomy_dir": run_dir / "06_taxonomy",
+        "barplot_dir": run_dir / "07_taxa_barplots",
+
+        "demux_qza": run_dir / "01_import" / "demux-paired-end.qza",
+        "demux_qzv": run_dir / "01_import" / "demux-paired-end.qzv",
+
+        "table_qza": run_dir / "02_dada2_denoise" / "table.qza",
+        "rep_seqs_qza": run_dir / "02_dada2_denoise" / "rep-seqs.qza",
+        "denoising_stats_qza": run_dir / "02_dada2_denoise" / "denoising-stats.qza",
+        "denoising_stats_qzv": run_dir / "02_dada2_denoise" / "denoising-stats.qzv",
+
+        "table_qzv": run_dir / "03_feature_table_summary" / "table.qzv",
+        "rep_seqs_qzv": run_dir / "03_feature_table_summary" / "rep-seqs.qzv",
+
+        "aligned_rep_seqs_qza": run_dir / "04_phylogeny" / "aligned-rep-seqs.qza",
+        "masked_aligned_rep_seqs_qza": run_dir / "04_phylogeny" / "masked-aligned-rep-seqs.qza",
+        "unrooted_tree_qza": run_dir / "04_phylogeny" / "unrooted-tree.qza",
+        "rooted_tree_qza": run_dir / "04_phylogeny" / "rooted-tree.qza",
+    }
+
+    for key, path in paths.items():
+        if key.endswith("_dir"):
+            make_dir(path)
+
+    return paths
 
 
-def phylogenetic_analysis(denoised_folder, folder_results):
-       output_folder=f'{folder_results}/phylogenetic_analysis'
-       os.makedirs(output_folder, exist_ok=True)
-       cmd=['qiime', 'phylogeny', 'align-to-tree-mafft-fasttree',
-            '--i-sequences', f'{denoised_folder}/rep-seqs.qza',
-            '--o-alignment', f'{output_folder}/aligned-rep-seqs.qza',
-            '--o-masked-alignment', f'{output_folder}/masked-aligned-rep-seqs.qza',
-            '--o-tree', f'{output_folder}/unrooted-tree.qza',
-            '--o-rooted-tree', f'{output_folder}/rooted-tree.qza']
-       subprocess.run(cmd, check=True)
-       
-#phylogenetic_analysis(denoised_folder, folder_results)      
+# ============================================================
+# STEP 00: METADATA VISUALIZATION
+# ============================================================
+
+def create_metadata_tabulate(metadata_file, paths):
+    metadata_file = require_file(metadata_file, "Metadata file")
+
+    output_qzv = paths["metadata_viz_dir"] / "sample-metadata-viz.qzv"
+
+    run_cmd([
+        "qiime", "metadata", "tabulate",
+        "--m-input-file", metadata_file,
+        "--o-visualization", output_qzv,
+    ])
+
+    print(f"\nMetadata visualization created: {output_qzv}")
 
 
-#Alpha and beta diversity analysis 
+# ============================================================
+# STEP 01: IMPORT PAIRED-END DATA
+# ============================================================
 
-phylogenetic_folder=f'{folder_results}/phylogenetic_analysis'
+def import_paired_end_data(manifest_file, paths):
+    manifest_file = require_file(manifest_file, "Manifest file")
 
-def diversity_metrics(
-    denoised_folder,
-    folder_results,
-    phylogenetic_folder,
-    metadata_file,
-    overwrite=True
-):
-    sampling_depths = [500, 3200, 6000, 10000]
+    run_cmd([
+        "qiime", "tools", "import",
+        "--type", "SampleData[PairedEndSequencesWithQuality]",
+        "--input-path", manifest_file,
+        "--output-path", paths["demux_qza"],
+        "--input-format", "PairedEndFastqManifestPhred33V2",
+    ])
 
-    denoised_folder = Path(denoised_folder)
-    folder_results = Path(folder_results)
-    phylogenetic_folder = Path(phylogenetic_folder)
-    metadata_file = Path(metadata_file)
+    print(f"\nImported paired-end data: {paths['demux_qza']}")
 
-    table_qza = denoised_folder / "table.qza"
-    rooted_tree_qza = phylogenetic_folder / "rooted-tree.qza"
 
-    base_output_dir = folder_results / "diversity_metrics"
-    base_output_dir.mkdir(parents=True, exist_ok=True)
+def demux_summarize(paths):
+    run_cmd([
+        "qiime", "demux", "summarize",
+        "--i-data", paths["demux_qza"],
+        "--o-visualization", paths["demux_qzv"],
+    ])
+
+    print(f"\nDemux summary created: {paths['demux_qzv']}")
+
+
+# ============================================================
+# STEP 02: DADA2 DENOISING
+# ============================================================
+
+def denoise_paired(paths):
+    run_cmd([
+        "qiime", "dada2", "denoise-paired",
+        "--i-demultiplexed-seqs", paths["demux_qza"],
+
+        "--p-trim-left-f", DADA2_TRIM_LEFT_F,
+        "--p-trim-left-r", DADA2_TRIM_LEFT_R,
+        "--p-trunc-len-f", DADA2_TRUNC_LEN_F,
+        "--p-trunc-len-r", DADA2_TRUNC_LEN_R,
+
+        "--p-n-threads", THREADS,
+
+        "--o-table", paths["table_qza"],
+        "--o-representative-sequences", paths["rep_seqs_qza"],
+        "--o-denoising-stats", paths["denoising_stats_qza"],
+    ])
+
+    print("\nDADA2 denoising completed")
+
+
+def make_denoising_visualization(paths):
+    run_cmd([
+        "qiime", "metadata", "tabulate",
+        "--m-input-file", paths["denoising_stats_qza"],
+        "--o-visualization", paths["denoising_stats_qzv"],
+    ])
+
+    print(f"\nDenoising stats visualization created: {paths['denoising_stats_qzv']}")
+
+
+# ============================================================
+# STEP 03: FEATURE TABLE SUMMARIES
+# ============================================================
+
+def feature_table_summaries(metadata_file, paths):
+    metadata_file = require_file(metadata_file, "Metadata file")
+
+    run_cmd([
+        "qiime", "feature-table", "summarize",
+        "--i-table", paths["table_qza"],
+        "--m-sample-metadata-file", metadata_file,
+        "--o-visualization", paths["table_qzv"],
+    ])
+
+    run_cmd([
+        "qiime", "feature-table", "tabulate-seqs",
+        "--i-data", paths["rep_seqs_qza"],
+        "--o-visualization", paths["rep_seqs_qzv"],
+    ])
+
+    print("\nFeature table summaries created")
+
+
+# ============================================================
+# STEP 04: PHYLOGENETIC ANALYSIS
+# ============================================================
+
+def phylogenetic_analysis(paths):
+    run_cmd([
+        "qiime", "phylogeny", "align-to-tree-mafft-fasttree",
+        "--i-sequences", paths["rep_seqs_qza"],
+        "--o-alignment", paths["aligned_rep_seqs_qza"],
+        "--o-masked-alignment", paths["masked_aligned_rep_seqs_qza"],
+        "--o-tree", paths["unrooted_tree_qza"],
+        "--o-rooted-tree", paths["rooted_tree_qza"],
+    ])
+
+    print("\nPhylogenetic analysis completed")
+
+
+# ============================================================
+# STEP 05: CORE DIVERSITY METRICS
+# ============================================================
+
+def diversity_metrics(metadata_file, paths, sampling_depths):
+    metadata_file = require_file(metadata_file, "Metadata file")
 
     for depth in sampling_depths:
-        output_dir = base_output_dir / f"sampling_depth_{depth}"
+        output_dir = paths["diversity_dir"] / f"sampling_depth_{depth}"
+        make_dir(output_dir)
 
-        if output_dir.exists():
-            if overwrite:
-                shutil.rmtree(output_dir)
-            else:
-                print(f"Skipping depth {depth}: {output_dir} already exists")
-                continue
-
-        cmd = [
+        run_cmd([
             "qiime", "diversity", "core-metrics-phylogenetic",
-            "--i-phylogeny", str(rooted_tree_qza),
-            "--i-table", str(table_qza),
-            "--p-sampling-depth", str(depth),
-            "--m-metadata-file", str(metadata_file),
-            "--output-dir", str(output_dir)
-        ]
+            "--i-phylogeny", paths["rooted_tree_qza"],
+            "--i-table", paths["table_qza"],
+            "--p-sampling-depth", depth,
+            "--m-metadata-file", metadata_file,
+            "--output-dir", output_dir,
+        ])
 
-        print(f"\nRunning diversity analysis at sampling depth: {depth}")
-        print(" ".join(cmd))
+        print(f"\nDiversity metrics completed for sampling depth: {depth}")
 
-        subprocess.run(cmd, check=True)
+    print("\nAll diversity metrics completed")
 
-    print("\nAll diversity analyses completed.")
 
-#diversity_metrics(denoised_folder, folder_results, phylogenetic_folder, metadata_file, overwrite=True)    
+# ============================================================
+# STEP 06: ALPHA GROUP SIGNIFICANCE
+# ============================================================
 
-def alpha_group_significance(
-    folder_results,
-    metadata_file,
-    sampling_depths=None,
-    overwrite=True
-):
-    """
-    Run QIIME 2 alpha-group-significance for all alpha diversity vectors
-    generated by core-metrics-phylogenetic at multiple sampling depths.
-    """
-
-    if sampling_depths is None:
-        sampling_depths = [500, 3200, 6000, 10000]
-
-    folder_results = Path(folder_results)
-    metadata_file = Path(metadata_file)
-
-    diversity_base = folder_results / "diversity_metrics"
+def alpha_group_significance(metadata_file, paths, sampling_depths):
+    metadata_file = require_file(metadata_file, "Metadata file")
 
     alpha_metrics = {
         "faith_pd": "faith_pd_vector.qza",
@@ -182,84 +284,42 @@ def alpha_group_significance(
         "evenness": "evenness_vector.qza",
     }
 
-    if not metadata_file.exists():
-        raise FileNotFoundError(f"Metadata file not found: {metadata_file}")
-
     for depth in sampling_depths:
-        depth_dir = diversity_base / f"sampling_depth_{depth}"
+        depth_dir = paths["diversity_dir"] / f"sampling_depth_{depth}"
 
         if not depth_dir.exists():
-            print(f"Skipping depth {depth}: folder does not exist: {depth_dir}")
+            print(f"Skipping depth {depth}. Folder not found: {depth_dir}")
             continue
 
         output_dir = depth_dir / "alpha_group_significance"
-        output_dir.mkdir(parents=True, exist_ok=True)
+        make_dir(output_dir)
 
         for metric_name, vector_file in alpha_metrics.items():
             alpha_vector = depth_dir / vector_file
             output_qzv = output_dir / f"{metric_name}_group_significance.qzv"
 
             if not alpha_vector.exists():
-                print(f"Skipping {metric_name} at depth {depth}: missing {alpha_vector}")
+                print(f"Skipping {metric_name} at depth {depth}. Missing: {alpha_vector}")
                 continue
 
-            if output_qzv.exists():
-                if overwrite:
-                    output_qzv.unlink()
-                else:
-                    print(f"Skipping existing file: {output_qzv}")
-                    continue
-
-            cmd = [
+            run_cmd([
                 "qiime", "diversity", "alpha-group-significance",
-                "--i-alpha-diversity", str(alpha_vector),
-                "--m-metadata-file", str(metadata_file),
-                "--o-visualization", str(output_qzv),
-            ]
+                "--i-alpha-diversity", alpha_vector,
+                "--m-metadata-file", metadata_file,
+                "--o-visualization", output_qzv,
+            ])
 
-            print(f"\nRunning alpha-group-significance")
-            print(f"Depth: {depth}")
-            print(f"Metric: {metric_name}")
-            print(" ".join(cmd))
+    print("\nAlpha group significance completed")
 
-            subprocess.run(cmd, check=True)
 
-    print("\nAlpha-group-significance analyses completed.")
-    
-
-'''   
-alpha_group_significance(
-    folder_results,
-    metadata_file,
-    sampling_depths=[500, 3200, 6000, 10000],
-    overwrite=True
-)
-'''
-
-#Beta-group-significance analyses complete
-
-def safe_name(value):
-    value = str(value)
-    value = re.sub(r"[^A-Za-z0-9_.-]+", "_", value)
-    return value.strip("_")
-
+# ============================================================
+# STEP 07: BETA GROUP SIGNIFICANCE
+# ============================================================
 
 def get_valid_grouping_columns(metadata_file, max_unique_groups=12, min_group_size=2):
-    """
-    Select metadata columns suitable for QIIME2 beta-group-significance.
-
-    A valid column must:
-    - not be a sample ID, barcode, or filepath column
-    - have at least 2 groups
-    - not have all values unique
-    - have at least one group with >= min_group_size samples
-    - not have too many unique groups
-    """
-
-    metadata_file = Path(metadata_file)
+    metadata_file = require_file(metadata_file, "Metadata file")
     metadata = pd.read_csv(metadata_file, sep="\t", dtype=str)
 
-    # Remove QIIME2 metadata type row if present
     first_col = metadata.columns[0]
     metadata = metadata[metadata[first_col] != "#q2:types"]
 
@@ -336,313 +396,224 @@ def get_valid_grouping_columns(metadata_file, max_unique_groups=12, min_group_si
     return valid_columns
 
 
-def beta_group_significance(
-    folder_results,
-    metadata_file,
-    sampling_depths=None,
-    beta_metrics=None,
-    pairwise=True,
-    overwrite=True,
-    max_unique_groups=12
-):
-    if sampling_depths is None:
-        sampling_depths = [500, 3200, 6000, 10000]
+def beta_group_significance(metadata_file, paths, sampling_depths, pairwise=True):
+    metadata_file = require_file(metadata_file, "Metadata file")
 
-    if beta_metrics is None:
-        beta_metrics = {
-            "unweighted_unifrac": "unweighted_unifrac_distance_matrix.qza",
-            "weighted_unifrac": "weighted_unifrac_distance_matrix.qza",
-            "jaccard": "jaccard_distance_matrix.qza",
-            "bray_curtis": "bray_curtis_distance_matrix.qza",
-        }
-
-    folder_results = Path(folder_results)
-    metadata_file = Path(metadata_file)
+    beta_metrics = {
+        "unweighted_unifrac": "unweighted_unifrac_distance_matrix.qza",
+        "weighted_unifrac": "weighted_unifrac_distance_matrix.qza",
+        "jaccard": "jaccard_distance_matrix.qza",
+        "bray_curtis": "bray_curtis_distance_matrix.qza",
+    }
 
     metadata_columns = get_valid_grouping_columns(
         metadata_file=metadata_file,
-        max_unique_groups=max_unique_groups,
-        min_group_size=2
+        max_unique_groups=12,
+        min_group_size=2,
     )
 
-    diversity_base = folder_results / "diversity_metrics"
-
     for depth in sampling_depths:
-        depth_dir = diversity_base / f"sampling_depth_{depth}"
+        depth_dir = paths["diversity_dir"] / f"sampling_depth_{depth}"
 
         if not depth_dir.exists():
-            print(f"\nSkipping sampling depth {depth}: folder not found: {depth_dir}")
+            print(f"Skipping depth {depth}. Folder not found: {depth_dir}")
             continue
 
         beta_output_base = depth_dir / "beta_group_significance"
-        beta_output_base.mkdir(parents=True, exist_ok=True)
+        make_dir(beta_output_base)
 
         for beta_name, distance_file in beta_metrics.items():
             distance_matrix = depth_dir / distance_file
 
             if not distance_matrix.exists():
-                print(f"\nSkipping {beta_name} at depth {depth}: missing {distance_matrix}")
+                print(f"Skipping {beta_name} at depth {depth}. Missing: {distance_matrix}")
                 continue
 
             metric_output_dir = beta_output_base / beta_name
-            metric_output_dir.mkdir(parents=True, exist_ok=True)
+            make_dir(metric_output_dir)
 
             for column in metadata_columns:
                 column_safe = safe_name(column)
-
                 column_output_dir = metric_output_dir / column_safe
-                column_output_dir.mkdir(parents=True, exist_ok=True)
+                make_dir(column_output_dir)
 
                 output_qzv = column_output_dir / f"{beta_name}_{column_safe}_group_significance.qzv"
 
-                if output_qzv.exists():
-                    if overwrite:
-                        output_qzv.unlink()
-                    else:
-                        print(f"Skipping existing file: {output_qzv}")
-                        continue
-
                 cmd = [
                     "qiime", "diversity", "beta-group-significance",
-                    "--i-distance-matrix", str(distance_matrix),
-                    "--m-metadata-file", str(metadata_file),
+                    "--i-distance-matrix", distance_matrix,
+                    "--m-metadata-file", metadata_file,
                     "--m-metadata-column", column,
-                    "--o-visualization", str(output_qzv),
+                    "--o-visualization", output_qzv,
                 ]
 
                 if pairwise:
                     cmd.append("--p-pairwise")
 
-                print("\nRunning beta-group-significance")
-                print(f"Sampling depth: {depth}")
-                print(f"Beta metric: {beta_name}")
-                print(f"Metadata column: {column}")
-                print(" ".join(cmd))
-
                 try:
-                    subprocess.run(cmd, check=True)
+                    run_cmd(cmd)
                 except subprocess.CalledProcessError:
-                    print(f"WARNING: QIIME failed for column '{column}' at depth {depth} using {beta_name}. Skipping.")
-                    continue
+                    print(
+                        f"WARNING: QIIME failed for column '{column}', "
+                        f"depth {depth}, beta metric {beta_name}. Skipping."
+                    )
 
-    print("\nBeta-group-significance analyses completed.")
-
-'''
-beta_group_significance(
-    folder_results=folder_results,
-    metadata_file=metadata_file,
-    sampling_depths=[500, 3200, 6000, 10000],
-    pairwise=True,
-    overwrite=True
-)
-'''
+    print("\nBeta group significance completed")
 
 
+# ============================================================
+# STEP 08: ALPHA RAREFACTION
+# ============================================================
 
+def alpha_rarefaction(metadata_file, paths, max_depth):
+    metadata_file = require_file(metadata_file, "Metadata file")
 
-
-
-# Alpha rarefaction plotting 
-
-
-
-def alpha_rarefaction(
-    denoised_folder,
-    folder_results,
-    phylogenetic_folder,
-    metadata_file,
-    max_depth=10000,
-    overwrite=True
-):
-    """
-    Run QIIME 2 alpha-rarefaction.
-
-    This generates an interactive .qzv visualization to evaluate whether
-    sequencing depth is sufficient for alpha-diversity estimation.
-    """
-
-    denoised_folder = Path(denoised_folder)
-    folder_results = Path(folder_results)
-    phylogenetic_folder = Path(phylogenetic_folder)
-    metadata_file = Path(metadata_file)
-
-    table_qza = denoised_folder / "table.qza"
-    rooted_tree_qza = phylogenetic_folder / "rooted-tree.qza"
-
-    output_dir = folder_results / "alpha_rarefaction"
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = paths["diversity_dir"] / "alpha_rarefaction"
+    make_dir(output_dir)
 
     output_qzv = output_dir / f"alpha_rarefaction_max_depth_{max_depth}.qzv"
 
-    if output_qzv.exists():
-        if overwrite:
-            output_qzv.unlink()
-        else:
-            print(f"Skipping alpha rarefaction because output already exists: {output_qzv}")
-            return
-
-    cmd = [
+    run_cmd([
         "qiime", "diversity", "alpha-rarefaction",
-        "--i-table", str(table_qza),
-        "--i-phylogeny", str(rooted_tree_qza),
-        "--p-max-depth", str(max_depth),
-        "--m-metadata-file", str(metadata_file),
-        "--o-visualization", str(output_qzv),
-    ]
-
-    print("\nRunning alpha rarefaction")
-    print(" ".join(cmd))
-
-    subprocess.run(cmd, check=True)
+        "--i-table", paths["table_qza"],
+        "--i-phylogeny", paths["rooted_tree_qza"],
+        "--p-max-depth", max_depth,
+        "--m-metadata-file", metadata_file,
+        "--o-visualization", output_qzv,
+    ])
 
     print(f"\nAlpha rarefaction completed: {output_qzv}")
-'''
-alpha_rarefaction(
-    denoised_folder=denoised_folder,
-    folder_results=folder_results,
-    phylogenetic_folder=phylogenetic_folder,
-    metadata_file=metadata_file,
-    max_depth=10000,
-    overwrite=True
-)
-'''
-
-# Taxonomic analysis
-
-pretrained_models = {
-    "backbone_2024_09_full_length": "/home/rare/arlen/16S_colombian_vaginal_microbiome/data/classifiers/2024.09.backbone.full-length.nb.sklearn-1.4.2.qza",
-    "silva_138_99": "/home/rare/arlen/16S_colombian_vaginal_microbiome/data/classifiers/silva-138-99-nb-classifier.qza",
-}
 
 
-def taxonomic_assignment(folder_results, denoised_folder, pretrained_models, overwrite=True):
-    folder_results = Path(folder_results)
-    denoised_folder = Path(denoised_folder)
+# ============================================================
+# STEP 09: TAXONOMIC ASSIGNMENT
+# ============================================================
 
-    rep_seqs = denoised_folder / "rep-seqs.qza"
+def taxonomic_assignment(paths, classifiers):
+    for classifier_name, classifier_path in classifiers.items():
+        classifier_path = require_file(classifier_path, f"Classifier {classifier_name}")
 
-    if not rep_seqs.exists():
-        raise FileNotFoundError(f"Missing representative sequences file: {rep_seqs}")
+        output_dir = paths["taxonomy_dir"] / classifier_name
+        make_dir(output_dir)
 
-    base_output_folder = folder_results / "taxonomic_assignment"
-    base_output_folder.mkdir(parents=True, exist_ok=True)
+        taxonomy_qza = output_dir / "taxonomy.qza"
+        taxonomy_qzv = output_dir / "taxonomy.qzv"
 
-    for classifier_name, classifier_path in pretrained_models.items():
-        classifier_path = Path(classifier_path)
-
-        if not classifier_path.exists():
-            raise FileNotFoundError(f"Missing classifier file: {classifier_path}")
-
-        output_folder = base_output_folder / classifier_name
-        output_folder.mkdir(parents=True, exist_ok=True)
-
-        taxonomy_qza = output_folder / "taxonomy.qza"
-        taxonomy_qzv = output_folder / "taxonomy.qzv"
-
-        if overwrite:
-            if taxonomy_qza.exists():
-                taxonomy_qza.unlink()
-            if taxonomy_qzv.exists():
-                taxonomy_qzv.unlink()
-
-        cmd_1 = [
+        run_cmd([
             "qiime", "feature-classifier", "classify-sklearn",
-            "--i-classifier", str(classifier_path),
-            "--i-reads", str(rep_seqs),
-            "--o-classification", str(taxonomy_qza),
-        ]
+            "--i-classifier", classifier_path,
+            "--i-reads", paths["rep_seqs_qza"],
+            "--o-classification", taxonomy_qza,
+        ])
 
-        cmd_2 = [
+        run_cmd([
             "qiime", "metadata", "tabulate",
-            "--m-input-file", str(taxonomy_qza),
-            "--o-visualization", str(taxonomy_qzv),
-        ]
+            "--m-input-file", taxonomy_qza,
+            "--o-visualization", taxonomy_qzv,
+        ])
 
-        print("\nRunning taxonomic assignment")
-        print(f"Classifier: {classifier_name}")
-        print(" ".join(cmd_1))
+        print(f"\nTaxonomy completed for classifier: {classifier_name}")
 
-        subprocess.run(cmd_1, check=True)
-
-        print("\nCreating taxonomy visualization")
-        print(" ".join(cmd_2))
-
-        subprocess.run(cmd_2, check=True)
-
-    print("\nTaxonomic assignment completed for all classifiers.")
-
-''' 
-taxonomic_assignment(
-    folder_results=folder_results,
-    denoised_folder=denoised_folder,
-    pretrained_models=pretrained_models,
-    overwrite=True
-)
-'''
+    print("\nTaxonomic assignment completed for all classifiers")
 
 
+# ============================================================
+# STEP 10: TAXA BARPLOTS
+# ============================================================
 
-def taxa_barplots(folder_results, denoised_folder, metadata_file, overwrite=True):
+def taxa_barplots(metadata_file, paths):
+    metadata_file = require_file(metadata_file, "Metadata file")
 
-    folder_results = Path(folder_results)
-    denoised_folder = Path(denoised_folder)
-    metadata_file = Path(metadata_file)
-
-    table_qza = denoised_folder / "table.qza"
-    taxonomy_base = folder_results / "taxonomic_assignment"
-
-    if not table_qza.exists():
-        raise FileNotFoundError(f"Missing feature table: {table_qza}")
-
-    if not metadata_file.exists():
-        raise FileNotFoundError(f"Missing metadata file: {metadata_file}")
-
-    if not taxonomy_base.exists():
-        raise FileNotFoundError(f"Missing taxonomy folder: {taxonomy_base}")
-
-    taxonomy_files = sorted(taxonomy_base.glob("*/taxonomy.qza"))
+    taxonomy_files = sorted(paths["taxonomy_dir"].glob("*/taxonomy.qza"))
 
     if not taxonomy_files:
-        raise FileNotFoundError(f"No taxonomy.qza files found inside: {taxonomy_base}")
+        raise FileNotFoundError(f"No taxonomy.qza files found inside: {paths['taxonomy_dir']}")
 
     for taxonomy_qza in taxonomy_files:
-        classifier_folder = taxonomy_qza.parent
-        classifier_name = classifier_folder.name
+        classifier_name = taxonomy_qza.parent.name
 
-        output_folder = classifier_folder / "taxa_barplot"
-        output_folder.mkdir(parents=True, exist_ok=True)
+        output_dir = paths["barplot_dir"] / classifier_name
+        make_dir(output_dir)
 
-        output_qzv = output_folder / "taxa-bar-plots.qzv"
+        output_qzv = output_dir / "taxa-bar-plots.qzv"
 
-        if output_qzv.exists():
-            if overwrite:
-                output_qzv.unlink()
-            else:
-                print(f"Skipping {classifier_name}: output already exists.")
-                continue
-
-        cmd = [
+        run_cmd([
             "qiime", "taxa", "barplot",
-            "--i-table", str(table_qza),
-            "--i-taxonomy", str(taxonomy_qza),
-            "--m-metadata-file", str(metadata_file),
-            "--o-visualization", str(output_qzv),
-        ]
+            "--i-table", paths["table_qza"],
+            "--i-taxonomy", taxonomy_qza,
+            "--m-metadata-file", metadata_file,
+            "--o-visualization", output_qzv,
+        ])
 
-        print("\nGenerating taxa barplot")
-        print(f"Classifier: {classifier_name}")
-        print(" ".join(cmd))
+        print(f"\nTaxa barplot completed for classifier: {classifier_name}")
 
-        subprocess.run(cmd, check=True)
+    print("\nTaxa barplots completed for all classifiers")
 
-    print("\nTaxa barplots completed for all classifiers.")
 
-'''
-taxa_barplots(
-    folder_results=folder_results,
-    denoised_folder=denoised_folder,
-    metadata_file=metadata_file,
-    overwrite=True
-)
+# ============================================================
+# MAIN PIPELINE
+# ============================================================
 
-'''    
+def main():
+    require_file(MANIFEST_FILE, "Manifest file")
+    require_file(METADATA_FILE, "Metadata file")
+
+    for classifier_name, classifier_path in CLASSIFIERS.items():
+        require_file(classifier_path, f"Classifier {classifier_name}")
+
+    run_dir = initialize_unique_run()
+    paths = get_run_paths(run_dir)
+
+    create_metadata_tabulate(METADATA_FILE, paths)
+
+    import_paired_end_data(MANIFEST_FILE, paths)
+    demux_summarize(paths)
+
+    denoise_paired(paths)
+    make_denoising_visualization(paths)
+
+    feature_table_summaries(METADATA_FILE, paths)
+
+    phylogenetic_analysis(paths)
+
+    diversity_metrics(
+        metadata_file=METADATA_FILE,
+        paths=paths,
+        sampling_depths=SAMPLING_DEPTHS,
+    )
+
+    alpha_group_significance(
+        metadata_file=METADATA_FILE,
+        paths=paths,
+        sampling_depths=SAMPLING_DEPTHS,
+    )
+
+    beta_group_significance(
+        metadata_file=METADATA_FILE,
+        paths=paths,
+        sampling_depths=SAMPLING_DEPTHS,
+        pairwise=True,
+    )
+
+    alpha_rarefaction(
+        metadata_file=METADATA_FILE,
+        paths=paths,
+        max_depth=ALPHA_RAREFACTION_MAX_DEPTH,
+    )
+
+    taxonomic_assignment(
+        paths=paths,
+        classifiers=CLASSIFIERS,
+    )
+
+    taxa_barplots(
+        metadata_file=METADATA_FILE,
+        paths=paths,
+    )
+
+    print("\nPipeline completed successfully")
+    print(f"All outputs are inside this unique folder:\n{run_dir}")
+
+
+if __name__ == "__main__":
+    main()
