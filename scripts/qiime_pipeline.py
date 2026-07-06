@@ -389,3 +389,51 @@ def taxonomy_assigment(pretrained_model, metadata_file):
     subprocess.run(cmd_3, check=True)
 
 #taxonomy_assigment(pretrained_model, metadata_file)    
+
+
+
+
+
+
+# Extract qza information 
+
+
+def extract():
+    for x in os.listdir(paths['denoise_dir']):
+        if x.endswith('rep-seqs.qza') or x.endswith('table.qza'):
+            file=os.path.join(paths['denoise_dir'],x)
+            cmd=['qiime', 'tools', 'extract',
+                 '--input-path', f'{file}',
+                 '--output-path',paths['export_dir']/f'{x}']
+            subprocess.run(cmd, check=True)
+            
+#extract()
+
+
+def extract_taxonomy():
+    for x in os.listdir(paths['taxonomy_dir']):
+        if x.endswith('.qza'):
+            file=os.path.join(paths['taxonomy_dir'],x)
+            cmd=['qiime', 'tools', 'extract',
+                 '--input-path',f'{file}',
+                 '--output-path',paths['export_dir']/'silva_taxonomy']
+            subprocess.run(cmd, check=True)
+    
+#extract_taxonomy()
+
+## Run speciate IT to assign taxonomic classification 
+
+fasta_sequences='../results/08_exported_files/rep-seqs.qza/31c77f38-a305-49c1-b877-a39b046d0c67/data/dna-sequences.fasta'
+program='/home/rare/programs/speciateIT/vSpeciateDB_models/vSpeciateIT_V3V4'
+
+
+def classification(fasta_sequences, program):
+    output_folder='../results/09_speciate_it_classification'
+    os.makedirs(output_folder, exist_ok=True)
+    cmd=['classify', 
+         '-d', f'{program}', 
+         '-i', f'{fasta_sequences}',
+         '-o', f'{output_folder}']
+    subprocess.run(cmd, check=True)
+
+#classification(fasta_sequences,program)   
