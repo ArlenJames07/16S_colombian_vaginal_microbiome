@@ -50,16 +50,12 @@ temp/
 *.qza
 *.qzv
 
-# Pipeline results
-results/*
-!results/.gitkeep
 
 # Databases
 *.sqlite
 *.db
 
-# Outputs/results that can be regenerated
-outputs/
+
 
 # Credentials/config files
 .env
