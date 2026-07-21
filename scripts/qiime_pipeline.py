@@ -6,6 +6,7 @@ import shutil
 import os
 import pandas as pd
 import re
+import biom-format
 
 # ============================================================
 # BASE PATHS
@@ -437,3 +438,7 @@ def classification(fasta_sequences, program):
     subprocess.run(cmd, check=True)
 
 #classification(fasta_sequences,program)   
+
+
+    
+    
