@@ -46,14 +46,27 @@ temp/
 *.fa
 *.fna
 
+# QIIME 2 artifacts and visualizations
+*.qza
+*.qzv
+
+
 # Databases
 *.sqlite
 *.db
 
-# Outputs/results that can be regenerated
-outputs/
+
 
 # Credentials/config files
 .env
 config.local.yaml
 secrets/
+
+# Private input data
+data/input_files/*
+!data/input_files/manifest.template.tsv
+!data/input_files/metadata.template.tsv
+!data/input_files/README.md
+
+# Office temporary lock files
+.~lock.*#
