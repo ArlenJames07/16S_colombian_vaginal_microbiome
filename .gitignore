@@ -70,3 +70,5 @@ data/input_files/*
 
 # Office temporary lock files
 .~lock.*#
+
+/results/
